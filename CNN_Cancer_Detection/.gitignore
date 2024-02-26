@@ -1,3 +1,3 @@
 venv*
 requirements.in
-./data/*
+data/**
