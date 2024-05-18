@@ -35,6 +35,16 @@ def convert_byte_size_to_bytes(byte_size_str):
         raise ValueError("Invalid byte size format")
 
 def Kaggle_Data_Pull(competition_name = 'histopathologic-cancer-detection', usr_path='./data/', file_return=False):
+        # has some pagination issue, only grabs up to 20 files per directory
+        # eg. if dataset is
+        """
+        competition_data/
+            ∟/train/...
+            ∟/test/...
+            ∟train_labels.csv
+            ∟test_labels.csv
+        """
+        # then it will pull 42 items; 4 items from competition_data of which 2 items are /train/ and /test/ each holding 20 entries within them
         print("Grabbing file names from Kaggle...")
         files = kaggle.api.competition_list_files(competition_name)
         file_names = [i.name for i in files]
@@ -82,3 +92,66 @@ def Kaggle_Data_Pull(competition_name = 'histopathologic-cancer-detection', usr_
                     
         if file_return:
             return files
+def get_y_n_input(input_str):
+    while True:
+        usr = input(input_str)
+        try:
+            if usr.upper() == "Y":
+                usr_flag = False
+                break
+            elif usr.upper() == "N":
+                usr_flag = True
+                break
+            else:
+                raise ValueError
+        except ValueError:
+            print("Invalid Input")
+            continue
+    return usr_flag
+
+#alternate method without pagination issue, using os.system call to cli API...
+def Kaggle_Competition_Extract(competition_name):
+    try:
+        if os.path.exists("./data"):
+            os.chdir("./data")
+        else:
+            print("Making /data/ subfolder")
+            os.mkdir("./data")
+            os.chdir("./data")
+        
+        files = kaggle.api.competition_list_files(competition_name)
+        file_names = [i.name for i in files]
+        last_file = file_names[-1]
+        last_file_path = os.path.join(os.getcwd(), last_file)
+        file_flag = False
+        if os.path.exists(last_file_path):
+            input_str = "Files may already be present... \n Download anyway? \n[Y]es/[N]o"
+            file_flag = get_y_n_input(input_str)
+        zip_path = os.path.join(os.getcwd(), competition_name+".zip")
+        if os.path.exists(zip_path) or file_flag:
+            print("Competition files already downloaded...")
+        else:
+            print("Downloading competition files...")
+            os.system("kaggle competitions download -c histopathologic-cancer-detection")
+            print("Competition files downloaded.")
+            
+        if file_flag:
+            pass
+        else:
+            with zipfile.ZipFile(zip_path, mode='r') as zip_ref:
+                first_in_zip = zip_ref.namelist()[0]
+                last_in_zip = zip_ref.namelist()[-1]
+                if os.path.exists(os.path.join(os.getcwd(), first_in_zip)) and os.path.exists(os.path.join(os.getcwd(), last_in_zip)):
+                    print("Zipped files already present in /data/...")
+                else:
+                    print("Extracting files...")
+                    zip_ref.extractall(os.getcwd())
+                    print("Files extracted")
+        if os.path.exists(zip_path):
+            print("Cleaning up data directory...")
+            os.remove(zip_path)
+        os.chdir("..")
+        print("\nData directory ready!")
+    except Exception as e:
+        os.chdir("..")
+        print(f"Exception occurred: \n{e}")
